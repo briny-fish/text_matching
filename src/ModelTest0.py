@@ -38,7 +38,7 @@ class Recall(ClassificationMetric):
         """
         y_pred = np.argmax(y_pred, axis=1)
         y1size = np.sum(y_true)
-        return np.sum((y_pred == y_true) == y_true) / float(y1size)
+        return np.sum(np.logical_and((y_pred == y_true),y_true)) / float(y1size)
 class f1score(ClassificationMetric):
     """f1score metric."""
 
@@ -68,8 +68,8 @@ class f1score(ClassificationMetric):
         """
         y1size = np.sum(y_true==1)
         y_pred = np.argmax(y_pred, axis=1)
-        recall =  float(np.sum((y_pred == y_true) == y_true) / float(y1size))
-        acc = float(np.sum(y_pred == y_true) / float(y_true.size))
+        recall =  float(np.sum(np.logical_and((y_pred == y_true),y_true)) / float(y1size))
+        acc = float(np.sum(y_pred==y_true))/float(y_true.size)
         return 2*(acc*recall)/(acc+recall)
 
 class new_pre(preprocessors.BasicPreprocessor):
@@ -114,6 +114,10 @@ stopwords_file = '/Users/wit/OneDrive - mail.scut.edu.cn/njusearch/data/news pai
 d,datas = read_input(event_file,stopwords_file)
 #print('-------------')
 Datas = pd.DataFrame(datas)
+lensum = 0.0
+for line in Datas['text_left']:
+    lensum+=float(len(line))
+print(lensum/float(len(Datas)))
 print(len(Datas))
 Datas['label']=Datas['label'].astype(int)
 #print(Datas['label'])
@@ -195,12 +199,105 @@ print(model.params)
 learn_rate = 4e-4
 optimizer = torch.optim.Adam(model.parameters(),lr = learn_rate)
 
-trainer = mz.trainers.Trainer(
+
+import typing
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from tqdm.auto import tqdm
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+import matchzoo
+from matchzoo import tasks
+from matchzoo.dataloader import DataLoader
+from matchzoo.engine.base_model import BaseModel
+from matchzoo.engine.base_metric import BaseMetric
+from matchzoo.utils import AverageMeter, Timer, EarlyStopping
+class EarlyStopping1(EarlyStopping):
+    def __init__(
+        self,
+        patience: typing.Optional[int] = None,
+        should_decrease: bool = None,
+        key: typing.Any = None
+    ):
+        """Early stopping Constructor."""
+        self._patience = patience
+        self._key = key
+        self._best_so_far = 0
+        self._epochs_with_no_improvement = 0
+        self._is_best_so_far = False
+        self._early_stop = False
+
+    def update(self, result: list):
+        """Call function."""
+        f = open('outans.txt','r')
+        for k,v in result.items():
+            f.write(str(k)+':'+str(v)+'\n')
+        f.close()
+        score = result[self._key]
+        if score > self._best_so_far:
+            self._best_so_far = score
+            self._is_best_so_far = True
+            self._epochs_with_no_improvement = 0
+        else:
+            self._is_best_so_far = False
+            self._epochs_with_no_improvement += 1
+class Trainer1(mz.trainers.Trainer):
+    def __init__(
+        self,
+        model: BaseModel,
+        optimizer: optim.Optimizer,
+        trainloader: DataLoader,
+        validloader: DataLoader,
+        device: typing.Union[torch.device, int, list, None] = None,
+        start_epoch: int = 1,
+        epochs: int = 10,
+        validate_interval: typing.Optional[int] = None,
+        scheduler: typing.Any = None,
+        clip_norm: typing.Union[float, int] = None,
+        patience: typing.Optional[int] = None,
+        key: typing.Any = None,
+        checkpoint: typing.Union[str, Path] = None,
+        save_dir: typing.Union[str, Path] = None,
+        save_all: bool = False,
+        verbose: int = 1,
+        **kwargs
+    ):
+        """Base Trainer constructor."""
+        self._load_model(model, device)
+        self._load_dataloader(
+            trainloader, validloader, validate_interval
+        )
+
+        self._optimizer = optimizer
+        self._scheduler = scheduler
+        self._clip_norm = clip_norm
+        self._criterions = self._task.losses
+
+        if not key:
+            key = self._task.metrics[0]
+        self._early_stopping = EarlyStopping1(
+            patience=patience,
+            key=key
+        )
+
+        self._start_epoch = start_epoch
+        self._epochs = epochs
+        self._iteration = 0
+        self._verbose = verbose
+        self._save_all = save_all
+
+        self._load_path(checkpoint, save_dir)
+        
+trainer = mz.trainers.Trainer1(
     model=model,
     optimizer=optimizer,
     trainloader=trainloader,
     validloader=validloader,
-    epochs=60
+    epochs=40
 )
 
 trainer.run()

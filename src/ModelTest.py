@@ -38,7 +38,7 @@ class Recall(ClassificationMetric):
         """
         y_pred = np.argmax(y_pred, axis=1)
         y1size = np.sum(y_true)
-        return np.sum((y_pred == y_true) == y_true) / float(y1size)
+        return np.sum(np.logical_and((y_pred == y_true),y_true)) / float(y1size)
 class f1score(ClassificationMetric):
     """f1score metric."""
 
@@ -68,8 +68,8 @@ class f1score(ClassificationMetric):
         """
         y1size = np.sum(y_true==1)
         y_pred = np.argmax(y_pred, axis=1)
-        recall =  float(np.sum((y_pred == y_true) == y_true) / float(y1size))
-        acc = float(np.sum(y_pred == y_true) / float(y_true.size))
+        recall =  float(np.sum(np.logical_and((y_pred == y_true),y_true)) / float(y1size))
+        acc = float(np.sum(y_pred==y_true))/float(y_true.size)
         return 2*(acc*recall)/(acc+recall)
 #event_file = '/Users/wit/OneDrive - mail.scut.edu.cn/njusearch/data/news pairs/raw/event-story-cluster/same_event_doc_pair.txt'
 #stopwords_file = '/Users/wit/OneDrive - mail.scut.edu.cn/njusearch/data/news pairs/raw/event-story-cluster/stopwords-zh.txt'
